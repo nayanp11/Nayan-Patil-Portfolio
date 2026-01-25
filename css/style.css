@@ -94,6 +94,11 @@ body {
   transition: all 0.3s ease;
 }
 
+.btn i {
+  margin-right: 8px;
+  font-size: 0.95rem;
+}
+
 .btn.primary {
   background: #4caf50;
   color: #fff;
@@ -186,6 +191,7 @@ section h2 {
   transition: transform 0.3s, box-shadow 0.3s;
 }
 
+
 .project-card h3 {
   margin-bottom: 6px;
 }
@@ -215,6 +221,33 @@ section h2 {
 .project-card:hover {
   transform: translateY(-6px);
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+}
+
+.project-image {
+  width: 100%;
+  background: #0b0f17;
+  border-radius: 14px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Portrait screenshots */
+.project-image.portrait {
+  height: 420px;
+}
+
+/* Landscape screenshots (future use) */
+.project-image.landscape {
+  height: 260px;
+}
+
+.project-image img {
+  height: 100%;
+  width: auto;
+  object-fit: contain;
 }
 
 /* PROJECTS PAGE */

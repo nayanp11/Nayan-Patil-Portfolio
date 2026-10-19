@@ -3,6 +3,8 @@
 const BALLS = 12;
 const WICKETS = 3;
 const SWEET = 0.92; // ball progress (0 = bowler, 1 = stumps) where timing is perfect
+const REACH = 11; // how far (lateral units) the bat can be from the ball's line and still connect
+const MAX_POS = 40;
 
 const LINES = {
   6: ["SIX! Kya shot hai!", "Into the stands! Someone get that ball back.", "Maximum! Pure timing."],
@@ -44,8 +46,8 @@ export function startCricket({ color, onExit }) {
       runs: 0, wkts: 0, ball: 0,
       state: "ready", // ready → delivery → result → (ready | over)
       t: 0, dur: 1.2, swungAt: null, onStumps: true, drift: 0,
-      line: "Press SPACE (or tap) to face the first ball.", pop: "", popT: 0,
-      hit: null, swingT: 0, stumpsT: 0, waitUntil: 0,
+      line: "Move into the ball's line (watch its shadow), swing in the zone. SPACE to start.", pop: "", popT: 0,
+      hit: null, swingT: 0, stumpsT: 0, waitUntil: 0, pos: 0,
     });
   }
   newGame();
@@ -59,7 +61,7 @@ export function startCricket({ color, onExit }) {
     g.dur = 1.35 - Math.random() * 0.45 - g.ball * 0.012; // slowly gets quicker
     if (Math.random() < 0.15) g.dur += 0.35; // slower ball
     g.onStumps = Math.random() < 0.55;
-    g.drift = g.onStumps ? (Math.random() - 0.5) * 10 : (Math.random() < 0.5 ? -1 : 1) * (26 + Math.random() * 20);
+    g.drift = g.onStumps ? (Math.random() - 0.5) * 10 : (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 12);
     g.line = g.dur > 1.3 ? "Slower one, watch it..." : "Bowler runs in...";
   }
 
@@ -70,7 +72,7 @@ export function startCricket({ color, onExit }) {
       g.pop = outcome === 6 ? "SIX!" : outcome === 4 ? "FOUR!" : `+${outcome}`;
       g.line = pick(LINES[outcome]);
     } else if (outcome === "dot") {
-      g.pop = "•";
+      g.pop = "DOT";
       g.line = pick(LINES.dot);
     } else {
       g.wkts++;
@@ -106,19 +108,40 @@ export function startCricket({ color, onExit }) {
     g.swingT = 1;
     const d = Math.abs(g.t - SWEET);
     let runs = d < 0.03 ? 6 : d < 0.055 ? 4 : d < 0.085 ? 2 : d < 0.12 ? 1 : 0;
+    const offLine = Math.abs(g.drift * g.t - g.pos) > REACH;
+    if (runs && offLine) {
+      g.line = "Right timing, wrong line! Get across to the ball.";
+      return;
+    }
     if (runs && d > 0.07 && Math.random() < 0.3) return (g.hit = { caught: true }), settle("caught");
+    const timing = g.t < SWEET ? "Too early" : "Too late";
+    if (!runs) g.line = `${timing}! Swing and a miss...`;
     if (runs) {
       g.hit = { vx: (Math.random() - 0.5) * 900, vy: -(500 + runs * 120), x: 0, y: 0, k: 0 };
       settle(runs);
+      if (runs < 6) g.line += `  (${timing.toLowerCase()})`;
     }
   }
 
+  const held = { left: false, right: false };
+  const dirOf = (k) => (k === "ArrowLeft" || k === "a" || k === "A" ? "left" : k === "ArrowRight" || k === "d" || k === "D" ? "right" : null);
   const onKey = (e) => {
     if (e.key === "Escape") { e.preventDefault(); return quit(); }
     if (e.key === " " || e.key === "Enter") { e.preventDefault(); swing(); }
+    const dir = dirOf(e.key);
+    if (dir) { e.preventDefault(); held[dir] = true; }
+  };
+  const onKeyUp = (e) => { const dir = dirOf(e.key); if (dir) held[dir] = false; };
+  // Mouse / finger x sets where the batter stands.
+  const posFromPointer = (e) => {
+    const { cx } = geo();
+    const unit = (project(SWEET, 60).x - cx) / 60;
+    g.pos = Math.max(-MAX_POS, Math.min(MAX_POS, (e.clientX - cx) / unit));
   };
   addEventListener("keydown", onKey);
-  cv.addEventListener("pointerdown", swing);
+  addEventListener("keyup", onKeyUp);
+  cv.addEventListener("pointermove", posFromPointer);
+  cv.addEventListener("pointerdown", (e) => { posFromPointer(e); swing(); });
   closeBtn.addEventListener("click", () => quit());
 
   let raf, last = performance.now(), alive = true;
@@ -126,6 +149,7 @@ export function startCricket({ color, onExit }) {
     alive = false;
     cancelAnimationFrame(raf);
     removeEventListener("keydown", onKey);
+    removeEventListener("keyup", onKeyUp);
     removeEventListener("resize", resize);
     cv.remove();
     closeBtn.remove();
@@ -203,17 +227,42 @@ export function startCricket({ color, onExit }) {
     if (g.stumpsT) g.stumpsT = Math.min(1, g.stumpsT + dt * 3);
     stumps(cx, batY, 1, g.stumpsT);
 
-    // batter + bat
-    const bx = cx + nearW * 0.38, by = batY - 6;
-    ctx.fillRect(bx - 7, by - 76, 14, 44); // body
-    ctx.beginPath(); ctx.arc(bx, by - 86, 9, 0, Math.PI * 2); ctx.fill(); // head
-    ctx.fillRect(bx - 7, by - 32, 5, 32); ctx.fillRect(bx + 2, by - 32, 5, 32); // legs
-    g.swingT = Math.max(0, g.swingT - dt * 3);
-    const ang = -0.5 + Math.sin(g.swingT * Math.PI) * -2.1;
+    // hit zone: where the ball is at perfect timing
+    const zone = project(SWEET, 0);
+    const zy = zone.y - height(SWEET) * zone.s;
+    const inZone = g.state === "delivery" && g.swungAt === null && Math.abs(g.t - SWEET) < 0.085;
+    ctx.globalAlpha = inZone ? 0.9 : 0.35;
+    ctx.setLineDash([6, 6]);
+    ctx.lineWidth = inZone ? 3 : 1.5;
+    ctx.beginPath(); ctx.ellipse(cx, zy, nearW * 0.55, 26, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+    if (inZone) { ctx.globalAlpha = 0.15; ctx.fill(); }
+    ctx.globalAlpha = inZone ? 1 : 0.5;
+    ctx.textAlign = "right";
+    ctx.font = font(inZone ? 22 : 16);
+    ctx.fillText(inZone ? "HIT NOW! ▶" : "hit zone ▶", cx - nearW * 0.6, zy + 5);
+    ctx.globalAlpha = 1;
+
+    // batter beside the stumps, bat hanging across the ball's line
+    g.pos = Math.max(-MAX_POS, Math.min(MAX_POS, g.pos + ((held.right ? 1 : 0) - (held.left ? 1 : 0)) * 70 * dt));
+    const tipX = project(SWEET, g.pos).x; // where the bat meets the ball
+    const px = tipX + nearW * 0.22, py = zy - 46; // hands (bat pivot)
+    const fx = px + 26; // body x
+    ctx.fillRect(fx - 7, batY - 82, 14, 46); // body
+    ctx.beginPath(); ctx.arc(fx, batY - 94, 9, 0, Math.PI * 2); ctx.fill(); // head
+    ctx.fillRect(fx - 8, batY - 36, 5, 36); ctx.fillRect(fx + 3, batY - 36, 5, 36); // legs
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(fx - 4, batY - 72); ctx.lineTo(px, py); ctx.stroke(); // arms
+    const len = 70;
+    const rest = Math.atan2(px - tipX, zy + 6 - py); // bat tip rests on the ball's line
+    g.swingT = Math.max(0, g.swingT - dt * 2.5);
+    const prog = g.swingT > 0 ? 1 - g.swingT : 0;
+    const ang = rest + (1 - (1 - prog) ** 3) * 2.8; // sweep across and up into a follow-through
     ctx.save();
-    ctx.translate(bx - 8, by - 54);
+    ctx.translate(px, py);
     ctx.rotate(ang);
-    ctx.fillRect(-4, 0, 8, 58);
+    ctx.fillRect(-2, 0, 4, 18); // handle
+    ctx.fillRect(-6, 18, 12, len - 18); // blade
     ctx.restore();
 
     // ball
@@ -237,7 +286,7 @@ export function startCricket({ color, onExit }) {
       h.x = h.vx * h.k;
       h.y = h.vy * h.k + 600 * h.k * h.k;
       const s = Math.max(0.15, 1 - h.k * 0.9);
-      ctx.beginPath(); ctx.arc(bx - 30 + h.x * 0.6, by - 50 + h.y * 0.6, 7 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(tipX + h.x * 0.6, zy + h.y * 0.6, 7 * s, 0, Math.PI * 2); ctx.fill();
     }
 
     // scoreboard
@@ -276,7 +325,7 @@ export function startCricket({ color, onExit }) {
     ctx.fillText(g.line, cx, H - 36);
     ctx.font = font(16);
     ctx.globalAlpha = 0.5;
-    ctx.fillText("SPACE / TAP = swing   ·   ESC = back to portfolio", cx, H - 12);
+    ctx.fillText("←/→ or MOUSE = move   ·   SPACE / CLICK / TAP = swing   ·   ESC = quit", cx, H - 12);
     ctx.globalAlpha = 1;
 
     if (g.state === "result" && now > g.waitUntil && !finishIfOver()) {

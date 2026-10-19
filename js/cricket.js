@@ -8,6 +8,8 @@ const LATE_MS = 160; // sweet spot sits this long before the ball reaches the st
 const METER_MS = [-450, LATE_MS]; // span shown on the timing meter
 const REACH = 11; // how far (lateral units) the bat can be from the ball's line and still connect
 const MAX_POS = 40;
+const RUNUP = 0.75; // seconds of bowler run-up before release
+const BAT_REST = 0.35, BAT_BACK = -2.2, BAT_FOLLOW = 2.5; // bat angles (0 = straight down)
 
 const LINES = {
   6: ["SIX! Kya shot hai!", "Into the stands! Someone get that ball back.", "Maximum! Pure timing."],
@@ -28,6 +30,7 @@ export function startCricket({ color, onExit }) {
   closeBtn.type = "button";
   closeBtn.textContent = "[ esc ]";
   document.body.append(cv, closeBtn);
+  document.body.classList.add("in-game");
   const ctx = cv.getContext("2d");
   const dpr = Math.min(devicePixelRatio, 2);
   let W, H;
@@ -50,13 +53,14 @@ export function startCricket({ color, onExit }) {
       state: "ready", // ready → delivery → result → (ready | over)
       t: 0, dur: 1.2, sweet: 0.88, press: null, swungAt: null, onStumps: true, drift: 0,
       line: "Move into the ball's line (watch its shadow), swing in the zone. SPACE to start.", pop: "", popT: 0,
-      hit: null, swingT: 0, stumpsT: 0, waitUntil: 0, pos: 0,
+      hit: null, swingT: 0, swingFrom: 0, batAng: BAT_REST, runT: 0, stumpsT: 0, waitUntil: 0, pos: 0,
     });
   }
   newGame();
 
   function bowl() {
-    g.state = "delivery";
+    g.state = "runup";
+    g.runT = 0;
     g.t = 0;
     g.swungAt = null;
     g.hit = null;
@@ -68,7 +72,7 @@ export function startCricket({ color, onExit }) {
     g.sweet = 1 - LATE_MS / 1000 / g.dur; // progress where the ball meets the bat
     g.onStumps = Math.random() < 0.55;
     g.drift = g.onStumps ? (Math.random() - 0.5) * 10 : (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 12);
-    g.line = g.dur > 1.3 ? "Slower one, watch it..." : "Bowler runs in...";
+    g.line = g.dur > 1.3 ? "Bowler runs in... looks like a slower one." : "Bowler runs in...";
   }
 
   function settle(outcome) {
@@ -114,6 +118,7 @@ export function startCricket({ color, onExit }) {
     if (g.state !== "delivery" || g.swungAt !== null) return;
     g.swungAt = g.t;
     g.swingT = 1;
+    g.swingFrom = g.batAng;
     const rel = relMs();
     g.press = rel;
     const d = Math.abs(rel);
@@ -169,6 +174,7 @@ export function startCricket({ color, onExit }) {
     removeEventListener("keyup", onKeyUp);
     removeEventListener("resize", resize);
     cv.remove();
+    document.body.classList.remove("in-game");
     closeBtn.remove();
     onExit?.();
   }
@@ -206,6 +212,86 @@ export function startCricket({ color, onExit }) {
     }
   }
 
+  function animateBat(dt) {
+    if (g.swingT > 0) {
+      g.swingT = Math.max(0, g.swingT - dt * 4);
+      const p = 1 - g.swingT;
+      g.batAng = g.swingFrom + (BAT_FOLLOW - g.swingFrom) * (1 - (1 - p) ** 3);
+      return;
+    }
+    const swung = g.swungAt !== null;
+    const target =
+      g.state === "runup" ? BAT_REST - 0.5 * Math.min(1, g.runT / RUNUP) :
+      g.state === "delivery" && !swung ? BAT_BACK :
+      swung && g.state !== "ready" ? BAT_FOLLOW : BAT_REST;
+    g.batAng += (target - g.batAng) * Math.min(1, dt * (g.state === "delivery" ? 9 : 5));
+  }
+
+  // Pixel-art batter facing the bowler. (x, y) = feet, u = scale unit, ang = bat angle.
+  function drawBatter(x, y, u, ang) {
+    const dark = "rgba(0,0,0,.55)";
+    const r = (rx, ry, w, h, c) => { if (c) ctx.fillStyle = c; ctx.fillRect(x + rx * u, y + ry * u, w * u, h * u); ctx.fillStyle = color; };
+    // shoes + pads with straps
+    r(-13, -5, 10, 5); r(3, -5, 10, 5);
+    r(-12, -38, 9, 33); r(3, -38, 9, 33);
+    [-30, -21, -12].forEach((sy) => { r(-12, sy, 9, 1.5, dark); r(3, sy, 9, 1.5, dark); });
+    r(-8, -38, 1, 33, dark); r(7, -38, 1, 33, dark);
+    // trousers, shirt, collar
+    r(-12, -52, 24, 15);
+    r(-14, -82, 28, 31);
+    r(-2.5, -82, 5, 6, dark);
+    r(-14, -55, 28, 2, dark); // belt
+    // helmet: dome, peak, grille
+    ctx.beginPath(); ctx.arc(x, y - 92 * u, 10 * u, Math.PI, 0); ctx.fill();
+    r(-10, -92, 20, 9);
+    r(-13, -93, 26, 3);
+    [-88, -85].forEach((gy) => r(-8, gy, 16, 1.2, dark));
+    r(-1, -90, 2, 7, dark);
+    // hands sit on an arc in front of the chest, following the bat
+    const hx = x + (-3 - Math.sin(ang) * 14) * u;
+    const hy = y + (-56 - (1 - Math.cos(ang)) * 12) * u;
+    ctx.lineCap = "round";
+    ctx.lineWidth = 5 * u;
+    ctx.beginPath();
+    ctx.moveTo(x - 12 * u, y - 77 * u); ctx.lineTo(hx, hy);
+    ctx.moveTo(x + 12 * u, y - 77 * u); ctx.lineTo(hx, hy);
+    ctx.stroke();
+    ctx.lineCap = "butt";
+    // bat: handle, grip, blade with a rounded toe and a spine line
+    ctx.save();
+    ctx.translate(hx, hy);
+    ctx.rotate(ang);
+    ctx.fillRect(-1.5 * u, -4 * u, 3 * u, 18 * u);
+    ctx.fillRect(-4.5 * u, -3 * u, 9 * u, 7 * u); // gloves
+    ctx.beginPath();
+    ctx.moveTo(-4.5 * u, 14 * u); ctx.lineTo(4.5 * u, 14 * u);
+    ctx.lineTo(4.5 * u, 52 * u); ctx.quadraticCurveTo(4.5 * u, 56 * u, 0, 56 * u);
+    ctx.quadraticCurveTo(-4.5 * u, 56 * u, -4.5 * u, 52 * u); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.fillRect(-0.6 * u, 18 * u, 1.2 * u, 34 * u);
+    ctx.fillStyle = color;
+    ctx.restore();
+  }
+
+  // Tiny bowler at the far end: jogs in during the run-up, arm whirls over at release.
+  function drawBowler(x, y, now) {
+    const run = g.state === "runup" ? g.runT / RUNUP : 0;
+    const k = 0.32 + run * 0.08;
+    const by = y - 4 - Math.abs(Math.sin(now / 70)) * 3 * (run > 0 ? 1 : 0.2);
+    const r = (rx, ry, w, h) => ctx.fillRect(x + rx * k, by + ry * k, w * k, h * k);
+    const stride = run > 0 ? Math.sin(now / 60) * 6 : 0;
+    r(-6 + stride, -30, 5, 30); r(1 - stride, -30, 5, 30); // legs
+    r(-8, -64, 16, 34); // body
+    ctx.beginPath(); ctx.arc(x, by - 72 * k, 7 * k, 0, Math.PI * 2); ctx.fill();
+    const arm = run > 0.6 ? Math.PI * 2 * ((run - 0.6) / 0.4) : g.state === "delivery" ? Math.PI * 2 : 0.3;
+    ctx.lineWidth = Math.max(1.5, 4 * k);
+    ctx.beginPath();
+    ctx.moveTo(x, by - 60 * k);
+    ctx.lineTo(x + Math.sin(arm) * 30 * k, by - 60 * k - Math.cos(arm) * 30 * k);
+    ctx.stroke();
+  }
+
   function draw(now, dt) {
     const { cx, horizon, batY, farW, nearW } = geo();
     ctx.fillStyle = "rgba(0,0,0,.35)";
@@ -237,8 +323,11 @@ export function startCricket({ color, onExit }) {
 
     // far stumps + bowler
     stumps(cx, horizon, 0.3, 0);
-    const run = g.state === "ready" ? 0 : Math.min(1, g.t * 4);
-    ctx.fillRect(cx - 4, horizon - 30 + Math.sin(now / 80) * 2 * (1 - run), 8, 22);
+    if (g.state === "runup") {
+      g.runT += dt;
+      if (g.runT >= RUNUP) { g.state = "delivery"; g.t = 0; }
+    }
+    drawBowler(cx, horizon, now);
 
     // near stumps
     if (g.stumpsT) g.stumpsT = Math.min(1, g.stumpsT + dt * 3);
@@ -268,27 +357,12 @@ export function startCricket({ color, onExit }) {
     ctx.fillText(inZone ? "HIT NOW! ▶" : "hit zone ▶", cx - nearW * 0.6, zy + 5);
     ctx.globalAlpha = 1;
 
-    // batter beside the stumps, bat hanging across the ball's line
+    // batter: stands beside the stumps, bat comes down on the ball's line
     g.pos = Math.max(-MAX_POS, Math.min(MAX_POS, g.pos + ((held.right ? 1 : 0) - (held.left ? 1 : 0)) * 70 * dt));
     const tipX = project(g.sweet, g.pos).x; // where the bat meets the ball
-    const px = tipX + nearW * 0.22, py = zy - 46; // hands (bat pivot)
-    const fx = px + 26; // body x
-    ctx.fillRect(fx - 7, batY - 82, 14, 46); // body
-    ctx.beginPath(); ctx.arc(fx, batY - 94, 9, 0, Math.PI * 2); ctx.fill(); // head
-    ctx.fillRect(fx - 8, batY - 36, 5, 36); ctx.fillRect(fx + 3, batY - 36, 5, 36); // legs
-    ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.moveTo(fx - 4, batY - 72); ctx.lineTo(px, py); ctx.stroke(); // arms
-    const len = 70;
-    const rest = Math.atan2(px - tipX, zy + 6 - py); // bat tip rests on the ball's line
-    g.swingT = Math.max(0, g.swingT - dt * 2.5);
-    const prog = g.swingT > 0 ? 1 - g.swingT : 0;
-    const ang = rest + (1 - (1 - prog) ** 3) * 2.8; // sweep across and up into a follow-through
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(ang);
-    ctx.fillRect(-2, 0, 4, 18); // handle
-    ctx.fillRect(-6, 18, 12, len - 18); // blade
-    ctx.restore();
+    animateBat(dt);
+    const u = nearW / 110;
+    drawBatter(tipX + 3 * u + Math.sin(BAT_REST) * 70 * u, batY + 6, u, g.batAng);
 
     // ball
     if (g.state === "delivery" || (g.state === "result" && !g.hit && !g.stumpsT)) {

@@ -5,7 +5,6 @@
 const ZONES = [[35, 6], [75, 4], [115, 2], [160, 1]];
 const LATE_MS = 160; // sweet spot sits this long before the ball reaches the stumps
 const METER_MS = [-450, LATE_MS]; // span shown on the timing meter
-const REACH = 11; // how far (lateral units) the bat can be from the ball's line and still connect
 const MAX_POS = 40;
 const RUNUP = 0.75; // seconds of bowler run-up before release
 const BAT_REST = 0.35, BAT_BACK = -2.2, BAT_FOLLOW = 2.5; // bat angles (0 = straight down)
@@ -14,6 +13,16 @@ const FIRE_STREAK = 3; // boundaries in a row before "on fire" bonus kicks in
 const FIRE_BONUS = 2;
 const SITE = "https://nayanp11.github.io/Nayan-Patil-Portfolio/#cricket";
 const TRICOLOUR = ["#FF9933", "#FFFFFF", "#138808"];
+
+// Difficulty changes pace, timing windows, bat reach and how much the ball does.
+const DIFFS = [
+  { id: "easy", name: "EASY", desc: "slower bowling · wide zones · spin path shown", speed: 0.25, zones: 1.35, reach: 15, turn: 0.6, path: true,
+    mix: [["pace", 0.6], ["yorker", 0.1], ["bouncer", 0.08], ["spin", 0.22]] },
+  { id: "normal", name: "NORMAL", desc: "the real thing", speed: 0, zones: 1, reach: 11, turn: 1, path: false,
+    mix: [["pace", 0.42], ["yorker", 0.2], ["bouncer", 0.16], ["spin", 0.22]] },
+  { id: "hard", name: "HARD", desc: "express pace · tight zones · big turn", speed: -0.18, zones: 0.8, reach: 9, turn: 1.3, path: false,
+    mix: [["pace", 0.3], ["yorker", 0.25], ["bouncer", 0.2], ["spin", 0.25]] },
+];
 
 const MODES = [
   { id: "chase", name: "CHASE", desc: "2 overs · 3 wickets · chase the target", balls: 12, wkts: 3, target: (r) => 18 + Math.floor(r() * 10) },
@@ -69,21 +78,22 @@ function seeded(str) {
 }
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-function makeDelivery(i, rnd) {
-  const r = rnd();
-  let type = i === 0 ? "pace" : r < 0.42 ? "pace" : r < 0.62 ? "yorker" : r < 0.78 ? "bouncer" : "spin";
-  let dur = 1.35 - rnd() * 0.45 - Math.min(i, 24) * 0.012;
+function makeDelivery(i, rnd, diff) {
+  let r = rnd();
+  let type = "pace";
+  if (i > 0) for (const [t, p] of diff.mix) { if ((r -= p) < 0) { type = t; break; } }
+  let dur = 1.35 - rnd() * 0.45 - Math.min(i, 24) * 0.012 + diff.speed;
   if (type === "pace" && rnd() < 0.18) (type = "slower"), (dur += 0.35);
   if (type === "spin") dur += 0.3;
   let drift = rnd() < 0.55 ? (rnd() - 0.5) * 10 : (rnd() < 0.5 ? -1 : 1) * (18 + rnd() * 12);
   let turn = 0;
   if (type === "spin") {
-    turn = (rnd() < 0.5 ? -1 : 1) * (40 + rnd() * 30);
+    turn = (rnd() < 0.5 ? -1 : 1) * (40 + rnd() * 30) * diff.turn;
     drift = -turn * 0.38 + (rnd() - 0.5) * 20; // starts wide, turns back toward the stumps
   }
   if (type === "yorker") drift = (rnd() - 0.5) * 10;
   if (type === "bouncer") drift = (rnd() - 0.5) * 16;
-  return { type, dur: Math.max(0.75, dur), drift, turn };
+  return { type, dur: Math.max(diff.id === "hard" ? 0.62 : 0.75, dur), drift, turn };
 }
 
 /* ---------- sound: everything synthesized, no files ---------- */
@@ -272,20 +282,28 @@ export function startCricket({ color, onExit }) {
   const sfx = makeAudio();
   speechSynthesis?.getVoices(); // warm the voice list
 
-  const bestKey = (m) => (m.seeded ? `cricket-best-daily-${today()}` : `cricket-best-${m.id}`);
+  // Daily Challenge is always Normal so everyone faces the same test.
+  const diffFor = (m) => (m.seeded ? DIFFS[1] : DIFFS[g.diffSel]);
+  const bestKey = (m) => (m.seeded ? `cricket-best-daily-${today()}` : `cricket-best-${m.id}-${diffFor(m).id}`);
   const getBest = (m) => { try { return +localStorage.getItem(bestKey(m)) || 0; } catch (e) { return 0; } };
 
-  const g = { state: "menu", menuSel: 0, buttons: [], particles: [], shake: 0, slowmo: 0, cheer: 0, flash: 0, toast: "", toastT: 0 };
+  let savedDiff = 1;
+  try {
+    const i = DIFFS.findIndex((d) => d.id === localStorage.getItem("cricket-diff"));
+    if (i >= 0) savedDiff = i;
+  } catch (e) {}
+  const g = { state: "menu", menuSel: 0, diffSel: savedDiff, buttons: [], particles: [], shake: 0, slowmo: 0, cheer: 0, flash: 0, toast: "", toastT: 0 };
   if (location.search.includes("debug")) window.__cricket = { g, latAt: (t) => latAt(t) }; // test hook
 
   function newGame(mode) {
     const rnd = mode.seeded ? seeded("nayan-cricket-" + today()) : Math.random;
+    const diff = diffFor(mode);
     Object.assign(g, {
-      mode, rnd,
+      mode, rnd, diff,
       target: mode.target ? mode.target(rnd) : null,
       runs: 0, wkts: 0, ball: 0, fours: 0, sixes: 0, streak: 0, log: [],
       state: "ready", // ready → runup → delivery → result → (ready | over)
-      d: makeDelivery(0, rnd), t: 0, sweet: 0.88, press: null, swungAt: null, bounced: false,
+      d: makeDelivery(0, rnd, diff), t: 0, sweet: 0.88, press: null, swungAt: null, bounced: false,
       line: "Line up with the ball's shadow, then swing in the zone. SPACE to face.", pop: "", popT: 0,
       hit: null, swingT: 0, swingFrom: 0, batAng: BAT_REST, runT: 0, stumpsT: 0, waitUntil: 0, pos: 0, duck: false, duckUntil: 0,
       missMsg: "", best: getBest(mode),
@@ -294,7 +312,7 @@ export function startCricket({ color, onExit }) {
   }
 
   function bowl() {
-    if (g.ball > 0) g.d = makeDelivery(g.ball, g.rnd);
+    if (g.ball > 0) g.d = makeDelivery(g.ball, g.rnd, g.diff);
     Object.assign(g, { state: "runup", runT: 0, t: 0, swungAt: null, hit: null, stumpsT: 0, press: null, missMsg: "", bounced: false });
     g.sweet = 1 - LATE_MS / 1000 / g.d.dur;
     g.line = `${DELIVERY[g.d.type].label}: ${DELIVERY[g.d.type].hint}`;
@@ -310,7 +328,7 @@ export function startCricket({ color, onExit }) {
     return Math.sin(((t - b) / (1 - b)) * Math.PI * 0.5) * 30;
   };
   const onStumps = () => g.d.type !== "bouncer" && Math.abs(latAt(1)) < 8;
-  const zoneScale = () => (g.d.type === "yorker" ? 0.6 : 1);
+  const zoneScale = () => (g.d.type === "yorker" ? 0.6 : 1) * g.diff.zones;
   const relMs = () => (g.t - g.sweet) * g.d.dur * 1000;
 
   function burst(n, x, y, spread = 1) {
@@ -412,7 +430,7 @@ export function startCricket({ color, onExit }) {
       g.line = g.missMsg = `${timing} by ${Math.round(d)}ms! Swing and a miss...`;
       return;
     }
-    if (g.d.type !== "bouncer" && Math.abs(latAt(g.t) - g.pos) > REACH) {
+    if (g.d.type !== "bouncer" && Math.abs(latAt(g.t) - g.pos) > g.diff.reach) {
       g.line = g.missMsg = "Right timing, wrong line! Line your reach bracket up with the ball's shadow.";
       return;
     }
@@ -442,6 +460,12 @@ export function startCricket({ color, onExit }) {
     settle("dot");
   }
 
+  function setDiff(i) {
+    sfx.click();
+    g.diffSel = (i + DIFFS.length) % DIFFS.length;
+    try { localStorage.setItem("cricket-diff", DIFFS[g.diffSel].id); } catch (e) {}
+  }
+
   function startMode(i) {
     sfx.click();
     newGame(MODES[i]);
@@ -452,7 +476,7 @@ export function startCricket({ color, onExit }) {
     const emoji = { 6: "6️⃣", 4: "4️⃣", 2: "2️⃣", 1: "1️⃣", dot: "⚪", out: "🔴" };
     const balls = g.log.map((x) => emoji[x]).join("");
     const ov = `${Math.floor(g.ball / 6)}.${g.ball % 6}`;
-    const head = m.seeded ? `DAILY ${today()}` : m.name;
+    const head = m.seeded ? `DAILY ${today()}` : `${m.name} (${g.diff.name})`;
     const result = g.target === null ? `${g.runs}/${g.wkts} (${ov} ov)` : `${g.runs}/${g.wkts} (${ov} ov) · target ${g.target} · ${g.won ? "WON ✅" : "LOST ❌"}`;
     const text = `🏏 NAYAN XI vs RECRUITERS XI · ${head}\n${result}\n${balls}\nBeat me → ${SITE}`;
     try {
@@ -477,6 +501,7 @@ export function startCricket({ color, onExit }) {
     if (g.state === "menu") {
       if (k >= "1" && k <= String(MODES.length)) return startMode(+k - 1);
       if (k === "ArrowDown" || k === "ArrowUp") { e.preventDefault(); sfx.click(); g.menuSel = (g.menuSel + (k === "ArrowDown" ? 1 : MODES.length - 1)) % MODES.length; }
+      if (k === "ArrowLeft" || k === "ArrowRight") { e.preventDefault(); setDiff(g.diffSel + (k === "ArrowRight" ? 1 : DIFFS.length - 1)); }
       if (k === " " || k === "Enter") { e.preventDefault(); startMode(g.menuSel); }
       return;
     }
@@ -673,6 +698,7 @@ export function startCricket({ color, onExit }) {
       ctx.ellipse(cx, batY - 40, W * 0.22 * r, H * 0.09 * r, 0, Math.PI, 0);
       ctx.stroke();
     }
+    if (crowdOnly) return (ctx.globalAlpha = 1);
     // crowd along the top of the stands; jumps when they cheer
     ctx.globalAlpha = 0.45;
     const N = Math.floor(W / 14);
@@ -731,7 +757,27 @@ export function startCricket({ color, onExit }) {
     ctx.fillText("vs  RECRUITERS XI", cx, H * 0.17 + 34);
     ctx.globalAlpha = 1;
     ctx.shadowBlur = 6;
-    const rowH = Math.min(70, H * 0.1), w = Math.min(560, W - 32), x0 = cx - w / 2, y0 = H * 0.3;
+    const rowH = Math.min(70, H * 0.09), w = Math.min(560, W - 32), x0 = cx - w / 2;
+    // difficulty pills
+    const pw = (w - 20) / DIFFS.length, ph = Math.min(44, H * 0.06), py = H * 0.27;
+    DIFFS.forEach((d, i) => {
+      const x = x0 + i * (pw + 10), sel = g.diffSel === i;
+      g.buttons.push({ x, y: py, w: pw, h: ph, action: () => setDiff(i) });
+      ctx.globalAlpha = sel ? 1 : 0.5;
+      ctx.lineWidth = sel ? 2 : 1;
+      if (sel) ctx.fillRect(x, py, pw, ph); else ctx.strokeRect(x, py, pw, ph);
+      ctx.fillStyle = sel ? "#000" : color;
+      ctx.textAlign = "center";
+      ctx.font = font(Math.min(26, ph * 0.6));
+      ctx.fillText(d.name, x + pw / 2, py + ph * 0.68);
+      ctx.fillStyle = color;
+    });
+    ctx.globalAlpha = 0.6;
+    ctx.textAlign = "center";
+    ctx.font = font(16);
+    ctx.fillText(`← → difficulty: ${DIFFS[g.diffSel].desc}`, cx, py + ph + 20);
+    ctx.globalAlpha = 1;
+    const y0 = py + ph + 36;
     MODES.forEach((m, i) => {
       const y = y0 + i * (rowH + 10);
       const sel = g.menuSel === i;
@@ -745,7 +791,7 @@ export function startCricket({ color, onExit }) {
       ctx.fillText(`[${i + 1}] ${m.name}`, x0 + 16, y + rowH * 0.45);
       ctx.globalAlpha = sel ? 0.8 : 0.45;
       ctx.font = font(Math.min(18, rowH * 0.28));
-      ctx.fillText(m.desc, x0 + 16, y + rowH * 0.8);
+      ctx.fillText(m.desc + (m.seeded ? " · always normal" : ""), x0 + 16, y + rowH * 0.8);
       ctx.textAlign = "right";
       ctx.fillText(`BEST ${getBest(m)}`, x0 + w - 16, y + rowH * 0.45);
     });
@@ -841,6 +887,55 @@ export function startCricket({ color, onExit }) {
     }
   }
 
+  // What's coming: speed gun for pace, a turning-ball icon for spin, arrows for bouncer/yorker.
+  function drawDeliveryCue(cx, horizon, now) {
+    const type = g.d.type;
+    const kmh = Math.round(160 - (g.d.dur - 0.62) * 48);
+    const y = horizon + 30;
+    ctx.textAlign = "center";
+    ctx.font = font(22);
+    if (type === "spin") {
+      const dir = Math.sign(g.d.turn);
+      const r = 9, ix = cx - 74, iy = y - 7;
+      // ball with seam
+      ctx.beginPath(); ctx.arc(ix, iy, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(ix - r * 0.7, iy - r * 0.7); ctx.lineTo(ix + r * 0.7, iy + r * 0.7); ctx.stroke();
+      // curved arrow showing the turn, gently animated
+      const wob = Math.sin(now / 200) * 2;
+      const ax = ix + 16, ay = iy + 4;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(ax, ay);
+      ctx.quadraticCurveTo(ax + 14, ay - 18, ax + 14 + dir * (14 + wob), ay - 4);
+      ctx.stroke();
+      const hx = ax + 14 + dir * (14 + wob), hy = ay - 4;
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx - dir * 7, hy - 6); ctx.lineTo(hx - dir * 2, hy + 6); ctx.closePath(); ctx.fill();
+      ctx.textAlign = "left";
+      ctx.fillText(`SPIN · turns ${dir < 0 ? "← LEFT" : "RIGHT →"}`, cx - 20, y);
+      // Easy: show the line it will take after the bounce
+      if (g.diff.path) {
+        ctx.globalAlpha = 0.4;
+        for (let t = 0.62; t <= 1; t += 0.03) {
+          const p = project(t, latAt(t));
+          ctx.beginPath(); ctx.arc(p.x, p.y, 2.5 * p.s + 1, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      return;
+    }
+    const fast = kmh >= 148;
+    const label = type === "bouncer" ? "⬆ BOUNCER" : type === "yorker" ? "⬇ YORKER" : type === "slower" ? "SLOWER BALL" : fast ? "EXPRESS PACE" : "PACE";
+    // speed gun box
+    const txt = `${label}  ${kmh} km/h`;
+    ctx.font = font(fast ? 26 : 22);
+    const tw = ctx.measureText(txt).width + 24;
+    ctx.globalAlpha = fast ? 0.9 + Math.sin(now / 80) * 0.1 : 0.8;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx - tw / 2, y - 20, tw, 28);
+    ctx.globalAlpha = 1;
+    ctx.fillText(txt, cx, y);
+  }
+
   function drawParticles(dt) {
     for (let i = g.particles.length - 1; i >= 0; i--) {
       const p = g.particles[i];
@@ -891,12 +986,7 @@ export function startCricket({ color, onExit }) {
     }
     drawBowler(cx, horizon, now);
     // delivery type + speed gun under the far stumps
-    if (g.state === "runup" || g.state === "delivery") {
-      const kmh = Math.round(158 - (g.d.dur - 0.75) * 55);
-      ctx.textAlign = "center";
-      ctx.font = font(22);
-      ctx.fillText(`${DELIVERY[g.d.type].label}  ${kmh} km/h`, cx, horizon + 26);
-    }
+    if (g.state === "runup" || g.state === "delivery") drawDeliveryCue(cx, horizon, now);
 
     // near stumps
     if (g.stumpsT) g.stumpsT = Math.min(1, g.stumpsT + dt * 3);
@@ -913,7 +1003,7 @@ export function startCricket({ color, onExit }) {
     ctx.setLineDash([]);
     if (inZone) { ctx.globalAlpha = 0.15; ctx.fill(); }
     // reach bracket: the ball's shadow must pass between these marks
-    const rA = project(g.sweet, g.pos - REACH).x, rB = project(g.sweet, g.pos + REACH).x;
+    const rA = project(g.sweet, g.pos - g.diff.reach).x, rB = project(g.sweet, g.pos + g.diff.reach).x;
     ctx.globalAlpha = 1;
     ctx.lineWidth = 3;
     ctx.beginPath();
@@ -955,7 +1045,7 @@ export function startCricket({ color, onExit }) {
     const pad = Math.max(16, W * 0.04);
     ctx.font = font(18);
     ctx.globalAlpha = 0.6;
-    ctx.fillText(`NAYAN XI vs RECRUITERS XI · ${g.mode.seeded ? "DAILY " + today() : g.mode.name}`, pad, pad + 14);
+    ctx.fillText(`NAYAN XI vs RECRUITERS XI · ${g.mode.seeded ? "DAILY " + today() : g.mode.name + " · " + g.diff.name}`, pad, pad + 14);
     ctx.globalAlpha = 1;
     ctx.font = font(Math.min(64, W * 0.11));
     ctx.fillText(`${g.runs}/${g.wkts}`, pad, pad + 66);

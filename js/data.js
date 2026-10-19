@@ -13,21 +13,23 @@ export const profile = {
   resume: "assets/Nayan Patil Resume.pdf",
   taglines: [
     "builds full-stack web apps",
+    "takes machines apart to see how they work",
     "encrypts things for fun",
     "turns ideas into 3D prints",
     "breaks things (ethically)",
     "runs on chai & javascript",
   ],
   about: [
-    "I'm a software developer from Navi Mumbai who likes building things end to end: the interface people touch, the APIs behind it and the data underneath.",
-    "Lately that means encrypted vaults on IPFS, rule engines that pick PC parts, an audio equalizer in the browser, and an app to run my own 3D printing business.",
-    "I care about clean code, secure defaults and software that actually feels good to use.",
+    "I'm a software developer from Navi Mumbai, and I've always been curious about how things work. As a kid that meant opening up whatever machine I could get a screwdriver into. Now it mostly means code: I like building things end to end, from the interface people use to the APIs and data behind it.",
+    "Recently I've been learning 3D printing, and I really enjoy it. I'd like to help people make things they actually want, especially students who need parts or prototypes for their projects.",
+    "Away from the keyboard I play football and spend a fair amount of time on games. Basically, if it's tech, I'm interested.",
   ],
   facts: [
     ["location", "Navi Mumbai, Maharashtra"],
     ["education", "MCA · SIES College of Management Studies"],
     ["prev", "B.Sc. Computer Science · CGPA 8.36"],
     ["status", "open to software roles"],
+    ["off-screen", "football, games, 3D printing"],
     ["fuel", "cutting chai ☕"],
   ],
 };

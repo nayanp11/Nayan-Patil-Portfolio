@@ -535,6 +535,19 @@ export function startCricket({ color, onExit }) {
     if (g.state === "menu" || g.state === "over") return;
     if (e.clientY > H - 70) { g.duck = true; g.duckUntil = performance.now() + 700; return; } // tap the bottom strip to duck
     posFromPointer(e);
+    // Touch: finger down drags the batter, lifting it plays the shot (see onPointerUp).
+    if (e.pointerType === "touch" || e.pointerType === "pen") {
+      touchId = e.pointerId;
+      cv.setPointerCapture?.(e.pointerId);
+      return;
+    }
+    swing();
+  };
+  let touchId = null;
+  const onPointerUp = (e) => {
+    if (e.pointerId !== touchId) return;
+    touchId = null;
+    if (g.state === "menu" || g.state === "over") return;
     swing();
   };
   // Defer so the Enter that launched the game doesn't also trigger an action.
@@ -545,6 +558,8 @@ export function startCricket({ color, onExit }) {
   }, 0);
   cv.addEventListener("pointermove", posFromPointer);
   cv.addEventListener("pointerdown", onPointer);
+  cv.addEventListener("pointerup", onPointerUp);
+  cv.addEventListener("pointercancel", (e) => { if (e.pointerId === touchId) touchId = null; });
   closeBtn.addEventListener("click", () => quit());
 
   let raf, last = performance.now();
@@ -1117,7 +1132,7 @@ export function startCricket({ color, onExit }) {
     fillWrapped(g.line, cx, H - 40, W - 32, 20);
     ctx.font = font(narrow ? 14 : 16);
     ctx.globalAlpha = 0.5;
-    ctx.fillText(narrow ? "TAP = swing · DRAG = move · TAP HERE = duck" : "←/→ MOUSE = move · SPACE/TAP = swing · ↓ = duck (tap here) · M = sound · ESC = quit", cx, H - 14);
+    ctx.fillText(narrow ? "DRAG = move · LIFT FINGER = swing · TAP HERE = duck" : "←/→ MOUSE = move · SPACE/TAP = swing · ↓ = duck (tap here) · M = sound · ESC = quit", cx, H - 14);
     ctx.globalAlpha = 1;
 
     // big pop

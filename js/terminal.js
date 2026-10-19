@@ -232,5 +232,5 @@ export function initTerminal({ onTheme, onMatrix, onCricket }) {
   }
   const isOpen = () => root.classList.contains("open");
 
-  return { open, close, toggle: () => (isOpen() ? close() : open()), isOpen };
+  return { open, close, toggle: () => (isOpen() ? close() : open()), isOpen, exec: run };
 }

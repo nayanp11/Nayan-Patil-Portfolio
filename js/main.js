@@ -16,7 +16,8 @@ const store = {
 /* ---------- render content from data.js ---------- */
 $("#about-text").innerHTML = profile.about.map((p) => `<p>${esc(p)}</p>`).join("");
 $("#facts").innerHTML = profile.facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("");
-$("#timeline").innerHTML = experience
+const renderLog = (kind) => experience
+  .filter((e) => e.kind === kind)
   .map(
     (e) => `<li>
       <span class="when">[${esc(e.when)}]</span>
@@ -26,6 +27,8 @@ $("#timeline").innerHTML = experience
     </li>`
   )
   .join("");
+$("#timeline-work").innerHTML = renderLog("work");
+$("#timeline-education").innerHTML = renderLog("education");
 $("#work-track").innerHTML = projects
   .map((p, i) => {
     const screen = p.image
@@ -387,6 +390,8 @@ const term = initTerminal({
   onCricket: () => startCricket({ color: phosphorHex(), onExit: () => term.open() }),
 });
 document.querySelectorAll("[data-open-terminal]").forEach((b) => b.addEventListener("click", term.open));
+// Clickable command hints: open the terminal and run the command, as if typed.
+document.querySelectorAll("[data-run]").forEach((b) => b.addEventListener("click", () => { term.open(); term.exec(b.dataset.run); }));
 const KONAMI = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
 let kPos = 0;
 addEventListener("keydown", (e) => {

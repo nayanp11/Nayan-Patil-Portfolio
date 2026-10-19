@@ -37,24 +37,28 @@ export const profile = {
 // TODO(nayan): fill company name + dates for the internship from the updated resume.
 export const experience = [
   {
+    kind: "work",
     when: "2026",
     title: "Cybersecurity Intern",
     org: "Company TBA",
     points: ["Hands-on work in the security field. Details coming with the updated resume."],
   },
   {
+    kind: "work",
     when: "2025 — now",
     title: "Founder · 3D Printing Business",
     org: "Self-employed",
     points: ["Running a small 3D printing business and building the software that powers it."],
   },
   {
+    kind: "education",
     when: "2024 — now",
     title: "Master of Computer Applications",
     org: "SIES College of Management Studies, Nerul",
     points: ["Certifications: Programming in Java and Cloud Computing (NPTEL)."],
   },
   {
+    kind: "education",
     when: "2020 — 2023",
     title: "B.Sc. Computer Science",
     org: "SIES College of Arts, Science & Commerce",

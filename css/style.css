@@ -100,6 +100,12 @@ kbd { border: 1px solid var(--dim); padding: 0 5px; font-family: var(--mono); }
 .hero-tag { font-size: clamp(16px, 2.2vw, 24px); margin: 18px 0 32px; min-height: 1.6em; }
 .caret { animation: blink 1s steps(1) infinite; margin-left: 2px; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 14px; }
+.try { margin: 22px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
+.try button, .link-btn { font: inherit; color: var(--ph); background: none; border: 1px dashed var(--dim); padding: 2px 8px; cursor: pointer; text-shadow: inherit; }
+.try button:hover, .link-btn:hover { border-style: solid; background: var(--faint); }
+.try .hot { border-style: solid; box-shadow: var(--glow); animation: pulse 2.4s ease-in-out infinite; }
+.link-btn { border: 0; padding: 0; text-decoration: underline; }
+@keyframes pulse { 50% { box-shadow: none; } }
 .btn {
   display: inline-block; font: inherit; font-size: 14px; color: var(--bg); background: var(--ph); border: 1px solid var(--ph);
   padding: 12px 18px; text-decoration: none; cursor: pointer; box-shadow: var(--glow); text-shadow: none; transition: background .2s, color .2s;
@@ -138,6 +144,12 @@ kbd { border: 1px solid var(--dim); padding: 0 5px; font-family: var(--mono); }
 .facts dt { color: var(--dim); }
 .facts dt::after { content: ":"; }
 .facts dd { margin: 0; }
+
+/* career log: experience | education */
+.log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 5vw, 80px); margin-top: 40px; }
+.log-head { font-family: var(--pixel); font-weight: 400; font-size: clamp(30px, 3.6vw, 44px); margin: 0; line-height: 1; }
+.log-head::before { content: "# "; color: var(--dim); }
+.log-grid .section-sub { margin-bottom: 28px; }
 
 /* timeline */
 .timeline { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--faint); }
@@ -252,7 +264,7 @@ kbd { border: 1px solid var(--dim); padding: 0 5px; font-family: var(--mono); }
 /* ============ RESPONSIVE ============ */
 @media (max-width: 960px) {
   .nav { display: none; }
-  .about-grid, .contact-grid, .telemetry { grid-template-columns: 1fr; }
+  .about-grid, .contact-grid, .telemetry, .log-grid { grid-template-columns: 1fr; }
   .about-photo { max-width: 320px; }
   .work-track { flex-direction: column; width: auto; gap: 96px; }
   .project { width: 100%; grid-template-columns: 1fr; }

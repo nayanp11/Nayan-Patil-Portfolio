@@ -69,6 +69,13 @@
           <button type="button" class="btn ghost" data-open-terminal data-magnetic>[ open terminal ]</button>
           <a href="assets/Nayan Patil Resume.pdf" target="_blank" rel="noopener" class="btn ghost" data-magnetic>[ resume.pdf ]</a>
         </div>
+        <p class="try">
+          <span class="hud-dim">psst, this site has a working terminal. try:</span>
+          <button type="button" data-run="neofetch">neofetch</button>
+          <button type="button" data-run="sudo hire-nayan">sudo hire-nayan</button>
+          <button type="button" data-run="chai">chai</button>
+          <button type="button" data-run="play cricket" class="hot">play cricket 🏏</button>
+        </p>
       </div>
       <div class="scroll-hint" aria-hidden="true"><span>scroll</span><i></i></div>
     </section>
@@ -92,8 +99,18 @@
     <!-- EXPERIENCE -->
     <section id="log" class="section">
       <h2 class="section-title" data-scramble><span>02</span> // log</h2>
-      <p class="section-sub">$ tail -f ~/career.log</p>
-      <ol id="timeline" class="timeline"></ol>
+      <div class="log-grid">
+        <div>
+          <h3 class="log-head">experience</h3>
+          <p class="section-sub">$ cat ~/work.log</p>
+          <ol id="timeline-work" class="timeline"></ol>
+        </div>
+        <div>
+          <h3 class="log-head">education</h3>
+          <p class="section-sub">$ cat ~/education.log</p>
+          <ol id="timeline-education" class="timeline"></ol>
+        </div>
+      </div>
     </section>
 
     <!-- PROJECTS -->
@@ -152,7 +169,7 @@
 
   <footer class="footer">
     <span>© 2026 Nayan Patil</span>
-    <span class="hud-dim">built with chai &amp; javascript · try the konami code</span>
+    <span class="hud-dim">built with chai &amp; javascript · press <kbd>`</kbd> for the terminal · <button type="button" class="link-btn" data-run="play cricket">play cricket 🏏</button> · try the konami code</span>
   </footer>
 
   <!-- TERMINAL -->

@@ -9,6 +9,7 @@ const REACH = 11; // how far (lateral units) the bat can be from the ball's line
 const MAX_POS = 40;
 const RUNUP = 0.75; // seconds of bowler run-up before release
 const BAT_REST = 0.35, BAT_BACK = -2.2, BAT_FOLLOW = 2.5; // bat angles (0 = straight down)
+const ROPE_RX = 0.62, ROPE_RY = 0.42; // boundary rope ellipse, as fractions of W / H
 const FIRE_STREAK = 3; // boundaries in a row before "on fire" bonus kicks in
 const FIRE_BONUS = 2;
 const SITE = "https://nayanp11.github.io/Nayan-Patil-Portfolio/#cricket";
@@ -88,8 +89,11 @@ function makeDelivery(i, rnd) {
 /* ---------- sound: everything synthesized, no files ---------- */
 function makeAudio() {
   let ac = null, noiseBuf = null;
-  let muted = false;
-  try { muted = localStorage.getItem("cricket-muted") === "1"; } catch (e) {}
+  let muted = false, voiceOn = false;
+  try {
+    muted = localStorage.getItem("cricket-muted") === "1";
+    voiceOn = localStorage.getItem("cricket-voice") === "1";
+  } catch (e) {}
   const ensure = () => {
     if (!ac) {
       try {
@@ -171,7 +175,10 @@ function makeAudio() {
     const vs = window.speechSynthesis?.getVoices() || [];
     if (!vs.length) return;
     const en = vs.filter((v) => /^en/i.test(v.lang));
+    const natural = /premium|enhanced|natural|neural/i; // the less robotic system voices, when installed
     voice =
+      en.find((v) => natural.test(v.name) && FEMALE.test(v.name)) ||
+      en.find((v) => natural.test(v.name)) ||
       en.find((v) => v.lang === "en-IN" && FEMALE.test(v.name)) ||
       en.find((v) => FEMALE.test(v.name)) ||
       en.find((v) => v.default) ||
@@ -195,8 +202,43 @@ function makeAudio() {
     crowd: (level, dur = 1.6) => play((t) => { noise(t, dur, "bandpass", 700, 0.6, 0.15 + level * 0.25, 0.25); noise(t, dur * 0.8, "lowpass", 1800, 0.5, 0.05 + level * 0.1, 0.3); }),
     groan: () => play((t) => noise(t, 0.9, "lowpass", 380, 0.7, 0.18, 0.15)),
     click: () => play((t) => tone(t, "square", 900, 900, 0.03, 0.08)),
+    get voiceOn() { return voiceOn; },
+    toggleVoice() {
+      voiceOn = !voiceOn;
+      try { localStorage.setItem("cricket-voice", voiceOn ? "1" : "0"); } catch (e) {}
+      if (!voiceOn) speechSynthesis?.cancel();
+    },
+    // Dhol: bass "dha" and sharp "tin" strokes, the IPL boundary soundtrack.
+    dhol(bars = 1) {
+      play((t) => {
+        const beat = 0.14;
+        const pattern = "B.TTB.T.B.TTBTTT"; // B = bass stroke, T = treble stroke
+        for (let i = 0; i < pattern.length * bars; i++) {
+          const c = pattern[i % pattern.length];
+          const at = t + i * beat;
+          if (c === "B") { tone(at, "sine", 120, 55, 0.28, 0.5); noise(at, 0.04, "lowpass", 400, 1, 0.2); }
+          if (c === "T") { tone(at, "triangle", 420, 330, 0.08, 0.18); noise(at, 0.05, "bandpass", 1500, 3, 0.25); }
+        }
+      });
+    },
+    // Stadium air horn: two short brassy blasts.
+    horn() {
+      play((t) => {
+        [0, 0.32].forEach((d) => {
+          [233, 294, 349].forEach((f) => {
+            const o = ac.createOscillator();
+            o.type = "sawtooth";
+            o.frequency.value = f;
+            const lp = ac.createBiquadFilter();
+            lp.type = "lowpass"; lp.frequency.value = 1800;
+            o.connect(lp).connect(out(0.06, t + d, 0.02, 0.24));
+            o.start(t + d); o.stop(t + d + 0.3);
+          });
+        });
+      });
+    },
     say(text) {
-      if (muted || !window.speechSynthesis) return;
+      if (muted || !voiceOn || !window.speechSynthesis) return;
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       if (voice === undefined) chooseVoice();
@@ -234,7 +276,7 @@ export function startCricket({ color, onExit }) {
   const getBest = (m) => { try { return +localStorage.getItem(bestKey(m)) || 0; } catch (e) { return 0; } };
 
   const g = { state: "menu", menuSel: 0, buttons: [], particles: [], shake: 0, slowmo: 0, cheer: 0, flash: 0, toast: "", toastT: 0 };
-  const fx = { particles: g.particles };
+  if (location.search.includes("debug")) window.__cricket = { g, latAt: (t) => latAt(t) }; // test hook
 
   function newGame(mode) {
     const rnd = mode.seeded ? seeded("nayan-cricket-" + today()) : Math.random;
@@ -297,11 +339,14 @@ export function startCricket({ color, onExit }) {
         g.slowmo = 0.9; g.shake = 16; g.flash = 1; g.cheer = 1;
         burst(140, cx, H * 0.2, 1.2);
         sfx.crowd(1, 2.2);
+        sfx.horn();
+        setTimeout(() => sfx.dhol(2), 500);
         sfx.say(pick(SAY[6]));
       } else if (outcome === 4) {
         g.shake = 7; g.cheer = 0.6;
         burst(40, cx, H * 0.25, 0.7);
         sfx.crowd(0.6);
+        sfx.dhol(1);
         sfx.say(pick(SAY[4]));
       }
       if (g.streak === FIRE_STREAK) {
@@ -326,7 +371,7 @@ export function startCricket({ color, onExit }) {
     }
     g.popT = 1;
     g.state = "result";
-    g.waitUntil = performance.now() + (outcome === 6 ? 2000 : 1400);
+    g.waitUntil = performance.now() + (outcome === 6 ? 2400 : outcome === 4 ? 1700 : 1400);
   }
 
   function finishIfOver() {
@@ -342,7 +387,7 @@ export function startCricket({ color, onExit }) {
     }
     g.pop = g.target === null ? `${g.runs} RUNS` : won ? "YOU WON!" : "LOST";
     g.popT = 1;
-    if (won) { burst(220, W / 2, H * 0.15, 1.4); g.cheer = 1; sfx.crowd(1, 3); }
+    if (won) { burst(220, W / 2, H * 0.15, 1.4); g.cheer = 1; sfx.crowd(1, 3); sfx.horn(); sfx.dhol(2); }
     sfx.say(pick(g.target === null ? SAY.endless : won ? SAY.won : SAY.lost));
     g.line = g.target === null
       ? `Innings over: ${g.runs} off ${g.ball} balls.${g.newBest ? " NEW BEST!" : ""}`
@@ -374,8 +419,8 @@ export function startCricket({ color, onExit }) {
     sfx.bat(runs / 6);
     if (g.d.type === "bouncer" && runs < 4 && Math.random() < 0.5) return (g.hit = { caught: true }), settle("caught", "topEdge");
     if (runs < 4 && Math.random() < 0.25) return (g.hit = { caught: true }), settle("caught");
-    const lofted = runs === 6;
-    g.hit = { vx: (Math.random() - 0.5) * (lofted ? 700 : 1100), vy: lofted ? -950 : runs === 4 ? -260 : -180, k: 0, lofted };
+    // Direction out into the field: anywhere on the far half of the ground.
+    g.hit = { runs, theta: Math.PI * (1.15 + Math.random() * 0.7), k: 0, trail: [], landed: false };
     const special = runs === 6 && g.d.type === "bouncer" ? "hook6" : runs === 6 && g.d.type === "yorker" ? "yorker6" : null;
     settle(runs, special);
     if (runs === 6) g.line = "PERFECT TIMING! " + g.line;
@@ -428,6 +473,7 @@ export function startCricket({ color, onExit }) {
     const k = e.key;
     if (k === "Escape") { e.preventDefault(); return quit(); }
     if (k === "m" || k === "M") return sfx.toggle();
+    if (k === "v" || k === "V") return sfx.toggleVoice();
     if (g.state === "menu") {
       if (k >= "1" && k <= String(MODES.length)) return startMode(+k - 1);
       if (k === "ArrowDown" || k === "ArrowUp") { e.preventDefault(); sfx.click(); g.menuSel = (g.menuSel + (k === "ArrowDown" ? 1 : MODES.length - 1)) % MODES.length; }
@@ -639,6 +685,15 @@ export function startCricket({ color, onExit }) {
       ctx.fillRect(x - 1.5, y - 10 - jump, 3, 3);
     }
     if (crowdOnly) return (ctx.globalAlpha = 1);
+    // boundary rope
+    g.ropeFlash = Math.max(0, (g.ropeFlash || 0) - 0.02);
+    ctx.globalAlpha = 0.35 + g.ropeFlash * 0.65;
+    ctx.lineWidth = 2 + g.ropeFlash * 3;
+    ctx.setLineDash([10, 8]);
+    ctx.beginPath();
+    ctx.ellipse(cx, batY - 40, W * ROPE_RX, H * ROPE_RY, 0, Math.PI, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
     // pitch + creases
     ctx.globalAlpha = 0.6;
     ctx.beginPath();
@@ -704,7 +759,7 @@ export function startCricket({ color, onExit }) {
       "TIP: yorkers have a tiny window. Bouncers: hold ↓ to duck.",
     ];
     ctx.fillText(tips[Math.floor(now / 4000) % tips.length], cx, H - 44);
-    ctx.fillText("↑/↓ + SPACE or tap a mode  ·  M = sound " + (sfx.muted ? "OFF" : "ON") + "  ·  ESC = quit", cx, H - 18);
+    fillWrapped("↑/↓ + SPACE or tap a mode  ·  M = sound " + (sfx.muted ? "OFF" : "ON") + "  ·  V = commentary voice " + (sfx.voiceOn ? "ON" : "OFF") + "  ·  ESC = quit", cx, H - 18, W - 32, 18);
     ctx.globalAlpha = 1;
   }
 
@@ -745,6 +800,45 @@ export function startCricket({ color, onExit }) {
     ctx.font = font(18);
     ctx.fillText("SPACE = again  ·  C = copy score card  ·  B = modes", cx, by + bh + 30);
     ctx.globalAlpha = 1;
+  }
+
+  // Ball flight after a scoring shot: 1s and 2s roll into the gaps, fours race along the
+  // ground to the rope, sixes sail high over it into the crowd.
+  function drawHit(dt, startX, groundY, startLift) {
+    const h = g.hit;
+    const { cx, batY } = geo();
+    const dur = h.runs === 6 ? 1.35 : h.runs === 4 ? 1.05 : 0.8;
+    h.k = Math.min(1, h.k + dt / dur);
+    const reach = h.runs === 6 ? 1.2 : h.runs === 4 ? 1 : h.runs === 2 ? 0.55 : 0.38;
+    const dx = Math.max(24, Math.min(W - 24, cx + Math.cos(h.theta) * W * ROPE_RX * reach));
+    const dy = batY - 40 + Math.sin(h.theta) * H * ROPE_RY * reach;
+    const s = 1 - (1 - h.k) ** 2; // quick off the bat, slowing as it travels
+    const gx = startX + (dx - startX) * s;
+    const gy = groundY + (dy - groundY) * s;
+    let lift = startLift * (1 - s);
+    if (h.runs === 6) lift += Math.sin(Math.PI * h.k) * H * 0.3;
+    else if (h.runs === 4) lift += Math.abs(Math.sin(h.k * Math.PI * 3)) * 16 * (1 - h.k);
+    const size = Math.max(2, 7 - 5 * s);
+    if (!h.landed) {
+      h.trail.push([gx, gy - lift]);
+      if (h.trail.length > 18) h.trail.shift();
+    }
+    h.trail.forEach(([x, y], i) => {
+      ctx.globalAlpha = (i / h.trail.length) * 0.35;
+      ctx.beginPath(); ctx.arc(x, y, size * 0.7, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath(); ctx.ellipse(gx, gy, size, size * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(gx, gy - lift, size, 0, Math.PI * 2); ctx.fill();
+    if (h.k >= 1 && !h.landed) {
+      h.landed = true;
+      if (h.runs >= 4) {
+        g.ropeFlash = 1;
+        burst(h.runs === 6 ? 50 : 20, gx, gy - lift, 0.35);
+        g.cheer = 1;
+      }
+    }
   }
 
   function drawParticles(dt) {
@@ -853,14 +947,7 @@ export function startCricket({ color, onExit }) {
       ctx.beginPath(); ctx.arc(p.x, p.y - hgt, Math.max(2, 7 * p.s), 0, Math.PI * 2); ctx.fill();
       if (g.state === "delivery" && g.t >= 1) ballDone();
     }
-    if (g.hit && !g.hit.caught) {
-      const h = g.hit;
-      h.k += dt;
-      const s = h.lofted ? Math.max(0.12, 1 - h.k * 0.8) : Math.max(0.3, 1 - h.k * 0.5);
-      const x = tipX + h.vx * h.k * 0.6;
-      const y = zy + (h.vy * h.k + (h.lofted ? 700 : 500) * h.k * h.k) * 0.6;
-      ctx.beginPath(); ctx.arc(x, Math.min(y, batY + 20), 7 * s, 0, Math.PI * 2); ctx.fill();
-    }
+    if (g.hit && !g.hit.caught) drawHit(dt, tipX, zone.y, zone.y - zy);
 
     // scoreboard
     ctx.shadowBlur = 6;
@@ -895,7 +982,7 @@ export function startCricket({ color, onExit }) {
     ctx.textAlign = "right";
     ctx.globalAlpha = 0.6;
     ctx.font = font(16);
-    ctx.fillText(`[M] sound ${sfx.muted ? "OFF" : "ON"}`, W - 16, 66);
+    ctx.fillText(`[M] sound ${sfx.muted ? "OFF" : "ON"} · [V] voice ${sfx.voiceOn ? "ON" : "OFF"}`, W - 16, 66);
     ctx.globalAlpha = 1;
 
     // timing meter (FC-penalty style); yorkers shrink the zones

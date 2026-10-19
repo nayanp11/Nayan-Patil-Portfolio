@@ -128,13 +128,66 @@ function makeAudio() {
     o.start(t0); o.stop(t0 + dur + 0.05);
   };
   const play = (fn) => { if (!muted && ensure()) fn(ac.currentTime); };
+
+  // Stadium ambience: a low, slowly swelling crowd murmur that loops under everything.
+  let amb = null;
+  const AMB_LEVEL = 0.05;
+  const startAmbience = () => {
+    if (amb || muted || !ensure()) return;
+    const t = ac.currentTime;
+    const gain = ac.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(AMB_LEVEL, t + 2);
+    gain.connect(ac.destination);
+    [[420, 0.6], [950, 0.9]].forEach(([freq, q], i) => {
+      const src = ac.createBufferSource();
+      src.buffer = noiseBuf;
+      src.loop = true;
+      src.playbackRate.value = 0.9 + i * 0.15; // decorrelate the two layers
+      const f = ac.createBiquadFilter();
+      f.type = "bandpass"; f.frequency.value = freq; f.Q.value = q;
+      const layer = ac.createGain();
+      layer.gain.value = i ? 0.45 : 1;
+      // slow random-ish swell, like a crowd reacting between balls
+      const lfo = ac.createOscillator();
+      lfo.frequency.value = 0.07 + i * 0.05;
+      const depth = ac.createGain();
+      depth.gain.value = 0.35;
+      lfo.connect(depth).connect(layer.gain);
+      src.connect(f).connect(layer).connect(gain);
+      src.start(t); lfo.start(t);
+    });
+    amb = gain;
+  };
+  const setAmbience = (on) => {
+    if (!amb) return on && startAmbience();
+    amb.gain.setTargetAtTime(on ? AMB_LEVEL : 0.0001, ac.currentTime, 0.3);
+  };
+
+  // Pick one female voice and keep it, so every line sounds like the same commentator.
+  let voice;
+  const FEMALE = /veena|heera|neerja|kalpana|swara|female|samantha|karen|moira|tessa|serena|zira|susan|fiona|victoria/i;
+  const chooseVoice = () => {
+    const vs = window.speechSynthesis?.getVoices() || [];
+    if (!vs.length) return;
+    const en = vs.filter((v) => /^en/i.test(v.lang));
+    voice =
+      en.find((v) => v.lang === "en-IN" && FEMALE.test(v.name)) ||
+      en.find((v) => FEMALE.test(v.name)) ||
+      en.find((v) => v.default) ||
+      null;
+  };
+  chooseVoice();
+  window.speechSynthesis?.addEventListener?.("voiceschanged", chooseVoice);
   return {
-    unlock: ensure,
+    unlock() { if (ensure()) startAmbience(); },
+    stop() { if (amb) amb.gain.setTargetAtTime(0.0001, ac.currentTime, 0.2); setTimeout(() => ac?.close(), 800); },
     get muted() { return muted; },
     toggle() {
       muted = !muted;
       try { localStorage.setItem("cricket-muted", muted ? "1" : "0"); } catch (e) {}
       if (muted) speechSynthesis?.cancel();
+      setAmbience(!muted);
     },
     bat: (power) => play((t) => { tone(t, "sine", 1100, 500, 0.09, 0.35 + power * 0.3); noise(t, 0.05, "bandpass", 2600, 1.2, 0.4 + power * 0.3); }),
     bounce: () => play((t) => tone(t, "sine", 160, 70, 0.1, 0.25)),
@@ -146,8 +199,8 @@ function makeAudio() {
       if (muted || !window.speechSynthesis) return;
       speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
-      const voices = speechSynthesis.getVoices();
-      u.voice = voices.find((v) => v.lang === "en-IN") || voices.find((v) => v.lang === "en-GB") || null;
+      if (voice === undefined) chooseVoice();
+      if (voice) u.voice = voice;
       u.rate = 1.08;
       u.volume = 0.9;
       speechSynthesis.speak(u);
@@ -431,6 +484,7 @@ export function startCricket({ color, onExit }) {
     removeEventListener("keyup", onKeyUp);
     removeEventListener("resize", resize);
     speechSynthesis?.cancel();
+    sfx.stop();
     cv.remove();
     document.body.classList.remove("in-game");
     closeBtn.remove();

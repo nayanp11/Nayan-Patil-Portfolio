@@ -190,7 +190,10 @@ function drawDither() {
   const cv = $("#dither");
   if (!img.complete || !img.naturalWidth) return;
   const ctx = cv.getContext("2d", { willReadFrequently: true });
-  ctx.drawImage(img, 0, 0, cv.width, cv.height);
+  // Cover-crop to the canvas, biased toward the top so the face stays in frame.
+  const scale = Math.max(cv.width / img.naturalWidth, cv.height / img.naturalHeight);
+  const sw = cv.width / scale, sh = cv.height / scale;
+  ctx.drawImage(img, (img.naturalWidth - sw) / 2, (img.naturalHeight - sh) * 0.15, sw, sh, 0, 0, cv.width, cv.height);
   let data;
   try { data = ctx.getImageData(0, 0, cv.width, cv.height); } catch (e) { return; } // tainted on file://
   const [r, g, b] = phosphorHex().match(/\w\w/g).map((h) => parseInt(h, 16));

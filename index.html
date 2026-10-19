@@ -1,161 +1,168 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-phosphor="green">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nayan Patil | Portfolio</title>
+  <title>Nayan Patil — Software Developer</title>
+  <meta name="description" content="Nayan Patil: software developer from Navi Mumbai building full-stack web apps, secure systems and things that feel good to use." />
+  <meta property="og:title" content="Nayan Patil — Software Developer" />
+  <meta property="og:description" content="Full-stack developer · security nerd · runs on chai." />
+  <meta property="og:image" content="https://nayanp11.github.io/Nayan-Patil-Portfolio/assets/profile.jpg" />
+  <meta name="theme-color" content="#030803" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%23030803'/><text x='4' y='24' font-family='monospace' font-size='20' fill='%2333ff77'>&gt;_</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=JetBrains+Mono:wght@300;400;600&family=Tiro+Devanagari+Hindi&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
-<!-- Font Awesome Icons -->
-  <link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-/>
-
+  <script>
+    // Apply saved phosphor before paint to avoid a flash.
+    try { const p = localStorage.getItem("phosphor"); if (p) document.documentElement.dataset.phosphor = p; } catch (e) {}
+  </script>
 </head>
 <body>
+  <!-- BOOT -->
+  <div id="boot" aria-hidden="true">
+    <pre id="boot-log"></pre>
+    <div id="boot-greet"></div>
+    <button id="boot-skip" type="button">[ skip ]</button>
+  </div>
 
-  <!-- Navbar -->
-  <header class="navbar">
-    <div class="logo">Nayan Patil</div>
-    <nav>
-      <a href="#about">About</a>
-      <a href="projects.html">Projects</a>
-      <a href="resume.html">Resume</a>
-      <a href="https://github.com/Sumit4689" target="_blank">GitHub</a>
-      <a href="https://linkedin.com/in/YOUR-LINKEDIN-ID" target="_blank">LinkedIn</a>
+  <!-- CRT overlays -->
+  <div class="crt-scanlines" aria-hidden="true"></div>
+  <div class="crt-vignette" aria-hidden="true"></div>
+  <div id="cursor" aria-hidden="true"></div>
+
+  <!-- HUD -->
+  <header class="hud hud-top">
+    <a href="#top" class="logo" data-magnetic>NP<span class="blink">_</span>//</a>
+    <nav class="nav">
+      <a href="#about">01.whoami</a>
+      <a href="#log">02.log</a>
+      <a href="#work">03.work</a>
+      <a href="#stack">04.stack</a>
+      <a href="#telemetry">05.telemetry</a>
+      <a href="#contact">06.transmit</a>
     </nav>
+    <div class="hud-right">
+      <span id="clock" class="hud-dim">--:--:-- IST</span>
+      <button id="phosphor-toggle" type="button" title="Switch phosphor (green / amber)" data-magnetic>
+        <span class="dot"></span><span id="phosphor-label">P1</span>
+      </button>
+    </div>
   </header>
+  <div class="hud hud-bottom" aria-hidden="true">
+    <span id="coords" class="hud-dim"></span>
+    <span class="hud-dim hide-sm">press <kbd>`</kbd> for terminal</span>
+    <span id="scroll-pct" class="hud-dim">SCR 000%</span>
+  </div>
 
-  <!-- Hero Section -->
-<section class="hero-intro">
-  <div class="hero-content">
-
-    <!-- GLASS CARD START -->
-    <div class="glass-card">
-
-      <div class="hero-text">
-        <h1>Nayan C. Patil</h1>
-        <h2>MCA Student | Software & Web Developer</h2>
-
-        <p>
-          SIES MCA student with a strong foundation in Python, SQL, and analytical
-          problem-solving. Skilled in building full-stack web applications and
-          working with data-driven solutions.
-        </p>
-
-        <div class="hero-buttons">
-          <a href="projects.html" class="btn outline">
-            <i class="fas fa-code"></i>
-            View Projects
-          </a>
-
-          <a href="assets/Nayan Patil Resume.pdf" target="_blank" class="btn outline">
-            <i class="fas fa-download"></i>
-            Download Resume
-          </a>
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <canvas id="hero-canvas" aria-hidden="true"></canvas>
+      <div class="hero-inner">
+        <p class="eyebrow">&gt; sys.user = <span class="glow">"nayan_patil"</span></p>
+        <h1 class="hero-name glitch" data-text="NAYAN PATIL" data-scramble>NAYAN PATIL</h1>
+        <p class="hero-tag">&gt; <span id="typed"></span><span class="caret">█</span></p>
+        <div class="hero-cta">
+          <a href="#work" class="btn" data-magnetic>[ view work ]</a>
+          <button type="button" class="btn ghost" data-open-terminal data-magnetic>[ open terminal ]</button>
+          <a href="assets/Nayan Patil Resume.pdf" target="_blank" rel="noopener" class="btn ghost" data-magnetic>[ resume.pdf ]</a>
         </div>
       </div>
+      <div class="scroll-hint" aria-hidden="true"><span>scroll</span><i></i></div>
+    </section>
 
-    </div>
-    <!-- GLASS CARD END -->
+    <!-- ABOUT -->
+    <section id="about" class="section">
+      <h2 class="section-title" data-scramble><span>01</span> // whoami</h2>
+      <div class="about-grid">
+        <figure class="monitor about-photo">
+          <canvas id="dither" width="372" height="508" role="img" aria-label="Portrait of Nayan Patil"></canvas>
+          <img id="dither-src" src="assets/profile.jpg" alt="" hidden />
+          <figcaption>nayan.jpg · 1-bit · phosphor</figcaption>
+        </figure>
+        <div>
+          <div id="about-text" class="about-text"></div>
+          <dl id="facts" class="facts"></dl>
+        </div>
+      </div>
+    </section>
 
-  </div>
-</section>
+    <!-- EXPERIENCE -->
+    <section id="log" class="section">
+      <h2 class="section-title" data-scramble><span>02</span> // log</h2>
+      <p class="section-sub">$ tail -f ~/career.log</p>
+      <ol id="timeline" class="timeline"></ol>
+    </section>
 
-<!-- Coder Stats Section -->
-<section class="coder-stats fade-in">
+    <!-- PROJECTS -->
+    <section id="work" class="work">
+      <div class="work-head section">
+        <h2 class="section-title" data-scramble><span>03</span> // work</h2>
+        <p class="section-sub">$ ls ./projects <span class="hud-dim">— scroll to browse</span></p>
+      </div>
+      <div class="work-track" id="work-track"></div>
+    </section>
 
-  <div class="stat-card">
-    <i class="fas fa-laptop-code"></i>
-    <h3>10+</h3>
-    <p>Projects Built</p>
-  </div>
+    <!-- SKILLS -->
+    <section id="stack" class="section">
+      <h2 class="section-title" data-scramble><span>04</span> // stack</h2>
+      <div class="marquee" aria-hidden="true"><div class="marquee-row" id="marquee-a"></div><div class="marquee-row reverse" id="marquee-b"></div></div>
+      <pre id="skill-tree" class="skill-tree"></pre>
+    </section>
 
-  <div class="stat-card">
-    <i class="fas fa-code"></i>
-    <h3>3+</h3>
-    <p>Tech Stacks</p>
-  </div>
+    <!-- GITHUB -->
+    <section id="telemetry" class="section">
+      <h2 class="section-title" data-scramble><span>05</span> // telemetry</h2>
+      <p class="section-sub">$ curl api.github.com/users/nayanp11 <span class="hud-dim">— live</span></p>
+      <div class="telemetry">
+        <div class="panel" id="gh-stats"><p class="hud-dim">establishing uplink…</p></div>
+        <div class="panel" id="gh-langs"></div>
+        <div class="panel wide" id="gh-repos"></div>
+      </div>
+    </section>
 
-  <div class="stat-card">
-    <i class="fas fa-database"></i>
-    <h3>MongoDB / SQL</h3>
-    <p>Databases</p>
-  </div>
+    <!-- CONTACT -->
+    <section id="contact" class="section">
+      <h2 class="section-title" data-scramble><span>06</span> // transmit</h2>
+      <div class="contact-grid">
+        <div>
+          <p class="big-line">Got a role, a project, or a print job?<br /><span class="glow">Let's talk.</span></p>
+          <ul class="links">
+            <li><a href="mailto:nayancpatil10@gmail.com" data-magnetic>&gt; email</a></li>
+            <li><a href="https://www.linkedin.com/in/nayan-patil-02914a23a/" target="_blank" rel="noopener" data-magnetic>&gt; linkedin</a></li>
+            <li><a href="https://github.com/nayanp11" target="_blank" rel="noopener" data-magnetic>&gt; github</a></li>
+          </ul>
+        </div>
+        <!-- TODO: replace YOUR_FORM_ID with the Formspree form id (formspree.io → New form). -->
+        <form id="contact-form" class="term-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+          <label><span>&gt; name:</span><input name="name" required autocomplete="name" /></label>
+          <label><span>&gt; email:</span><input name="email" type="email" required autocomplete="email" /></label>
+          <label class="ta"><span>&gt; message:</span><textarea name="message" rows="4" required></textarea></label>
+          <button type="submit" class="btn" data-magnetic>[ send transmission ]</button>
+          <p id="form-status" class="hud-dim" role="status"></p>
+        </form>
+      </div>
+    </section>
+  </main>
 
-  <div class="stat-card">
-    <i class="fas fa-user-shield"></i>
-    <h3>JWT</h3>
-    <p>Authentication</p>
-  </div>
-
-</section>
-
-<!-- Home Summary Section -->
-<section class="home-summary fade-in">
-  <div class="summary-container">
-
-    <h2>Who I Am</h2>
-
-    <p>
-      I am an MCA student with a strong interest in building reliable, scalable,
-      and user-focused software solutions. I enjoy working across the full stack,
-      especially backend logic, APIs, and database-driven applications.
-    </p>
-
-    <p>
-      My approach to development is simple:
-      <strong>understand the problem deeply, write clean code, and keep improving.</strong>
-      I believe good software is not just functional, but also maintainable and easy to use.
-    </p>
-
-    <p>
-      Currently, I am sharpening my skills in full-stack development, system design,
-      and real-world problem-solving while continuously learning modern tools and best practices.
-    </p>
-
-    <p class="highlight">
-      Code. Learn. Improve. Repeat.
-    </p>
-
-  </div>
-</section>
-
-  <!-- About Section -->
-  <section class="about" id="about">
-  <h2>About Me</h2>
-
-  <div class="about-container">
-    <img src="assets/profile.jpg" alt="Nayan Patil" class="about-img" />
-
-    <div class="about-text">
-      <p>
-        I am currently pursuing a <strong>Master of Computer Applications (MCA)</strong>
-        from SIES College of Management Studies, affiliated with Mumbai University.
-      </p>
-
-      <p>
-        I enjoy building full-stack web applications, working with REST APIs,
-        databases, and solving analytical problems using Python and SQL.
-      </p>
-
-      <p>
-        Detail-oriented, disciplined, and focused on delivering clean and scalable
-        solutions.
-      </p>
-    </div>
-  </div>
-</section>
-
-
-
-
-  <!-- Footer -->
-  <footer>
-    <p>© 2025 Nayan Patil | Portfolio</p>
+  <footer class="footer">
+    <span>© 2026 Nayan Patil</span>
+    <span class="hud-dim">built with chai &amp; javascript · try the konami code</span>
   </footer>
 
-  <script src="js/main.js"></script>
+  <!-- TERMINAL -->
+  <div id="terminal" class="terminal" role="dialog" aria-label="Terminal" aria-hidden="true">
+    <div class="term-bar"><span>nayan@portfolio: ~</span><button type="button" id="term-close" aria-label="Close terminal">[x]</button></div>
+    <div id="term-out" class="term-out"></div>
+    <label class="term-line"><span class="prompt">nayan@portfolio:~$</span><input id="term-in" autocomplete="off" spellcheck="false" aria-label="Terminal input" /></label>
+  </div>
+  <canvas id="matrix" aria-hidden="true"></canvas>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }</script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

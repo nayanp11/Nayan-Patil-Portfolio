@@ -135,8 +135,11 @@
             <li><a href="https://github.com/nayanp11" target="_blank" rel="noopener" data-magnetic>&gt; github</a></li>
           </ul>
         </div>
-        <!-- TODO: replace YOUR_FORM_ID with the Formspree form id (formspree.io → New form). -->
-        <form id="contact-form" class="term-form" action="https://formspree.io/f/YOUR_FORM_ID" method="POST">
+        <!-- FormSubmit: the first message sends an activation email to this address; click it once to start receiving. -->
+        <form id="contact-form" class="term-form" action="https://formsubmit.co/ajax/nayancpatil10@gmail.com" method="POST">
+          <input type="hidden" name="_subject" value="New message from your portfolio" />
+          <input type="hidden" name="_template" value="table" />
+          <input type="text" name="_honey" tabindex="-1" autocomplete="off" hidden />
           <label><span>&gt; name:</span><input name="name" required autocomplete="name" /></label>
           <label><span>&gt; email:</span><input name="email" type="email" required autocomplete="email" /></label>
           <label class="ta"><span>&gt; message:</span><textarea name="message" rows="4" required></textarea></label>

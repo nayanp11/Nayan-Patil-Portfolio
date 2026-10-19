@@ -331,11 +331,6 @@ $("#contact-form").addEventListener("submit", async (e) => {
   const form = e.target;
   const status = $("#form-status");
   const fd = new FormData(form);
-  if (form.action.includes("YOUR_FORM_ID")) {
-    // Formspree not configured yet: fall back to the visitor's mail client.
-    location.href = `mailto:${profile.email}?subject=${encodeURIComponent("Portfolio: " + fd.get("name"))}&body=${encodeURIComponent(fd.get("message") + "\n\n— " + fd.get("name") + " (" + fd.get("email") + ")")}`;
-    return;
-  }
   status.textContent = "transmitting…";
   try {
     const res = await fetch(form.action, { method: "POST", body: fd, headers: { Accept: "application/json" } });

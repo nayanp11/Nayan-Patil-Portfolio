@@ -2,7 +2,10 @@
 
 const BALLS = 12;
 const WICKETS = 3;
-const SWEET = 0.92; // ball progress (0 = bowler, 1 = stumps) where timing is perfect
+// Timing windows in ms either side of the sweet spot, so every delivery speed is equally fair.
+const ZONES = [[35, 6], [75, 4], [115, 2], [160, 1]];
+const LATE_MS = 160; // sweet spot sits this long before the ball reaches the stumps
+const METER_MS = [-450, LATE_MS]; // span shown on the timing meter
 const REACH = 11; // how far (lateral units) the bat can be from the ball's line and still connect
 const MAX_POS = 40;
 
@@ -45,7 +48,7 @@ export function startCricket({ color, onExit }) {
       target: 18 + ((Math.random() * 10) | 0),
       runs: 0, wkts: 0, ball: 0,
       state: "ready", // ready → delivery → result → (ready | over)
-      t: 0, dur: 1.2, swungAt: null, onStumps: true, drift: 0,
+      t: 0, dur: 1.2, sweet: 0.88, press: null, swungAt: null, onStumps: true, drift: 0,
       line: "Move into the ball's line (watch its shadow), swing in the zone. SPACE to start.", pop: "", popT: 0,
       hit: null, swingT: 0, stumpsT: 0, waitUntil: 0, pos: 0,
     });
@@ -58,8 +61,11 @@ export function startCricket({ color, onExit }) {
     g.swungAt = null;
     g.hit = null;
     g.stumpsT = 0;
+    g.press = null;
+    g.missMsg = "";
     g.dur = 1.35 - Math.random() * 0.45 - g.ball * 0.012; // slowly gets quicker
     if (Math.random() < 0.15) g.dur += 0.35; // slower ball
+    g.sweet = 1 - LATE_MS / 1000 / g.dur; // progress where the ball meets the bat
     g.onStumps = Math.random() < 0.55;
     g.drift = g.onStumps ? (Math.random() - 0.5) * 10 : (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 12);
     g.line = g.dur > 1.3 ? "Slower one, watch it..." : "Bowler runs in...";
@@ -73,11 +79,11 @@ export function startCricket({ color, onExit }) {
       g.line = pick(LINES[outcome]);
     } else if (outcome === "dot") {
       g.pop = "DOT";
-      g.line = pick(LINES.dot);
+      g.line = g.missMsg || pick(LINES.dot);
     } else {
       g.wkts++;
       g.pop = "OUT!";
-      g.line = pick(LINES[outcome]);
+      g.line = pick(LINES[outcome]) + (g.missMsg ? "  " + g.missMsg.split("!")[0] + "." : "");
     }
     g.popT = 1;
     g.state = "result";
@@ -100,29 +106,36 @@ export function startCricket({ color, onExit }) {
     return true;
   }
 
+  const relMs = () => (g.t - g.sweet) * g.dur * 1000;
+
   function swing() {
     if (g.state === "ready") return bowl();
     if (g.state === "over") return newGame(), bowl();
     if (g.state !== "delivery" || g.swungAt !== null) return;
     g.swungAt = g.t;
     g.swingT = 1;
-    const d = Math.abs(g.t - SWEET);
-    let runs = d < 0.03 ? 6 : d < 0.055 ? 4 : d < 0.085 ? 2 : d < 0.12 ? 1 : 0;
+    const rel = relMs();
+    g.press = rel;
+    const d = Math.abs(rel);
+    let runs = (ZONES.find(([ms]) => d < ms) || [0, 0])[1];
     const offLine = Math.abs(g.drift * g.t - g.pos) > REACH;
     if (runs && offLine) {
-      g.line = "Right timing, wrong line! Get across to the ball.";
+      g.missMsg = "Right timing, wrong line! Line your reach bracket up with the ball's shadow.";
+      g.line = g.missMsg;
       return;
     }
-    if (runs && d > 0.07 && Math.random() < 0.3) return (g.hit = { caught: true }), settle("caught");
-    const timing = g.t < SWEET ? "Too early" : "Too late";
-    if (!runs) g.line = `${timing}! Swing and a miss...`;
+    if (runs && runs < 4 && Math.random() < 0.25) return (g.hit = { caught: true }), settle("caught");
+    const timing = rel < 0 ? "Too early" : "Too late";
+    if (!runs) g.line = g.missMsg = `${timing} by ${Math.round(d)}ms! Swing and a miss...`;
     if (runs) {
       g.hit = { vx: (Math.random() - 0.5) * 900, vy: -(500 + runs * 120), x: 0, y: 0, k: 0 };
       settle(runs);
-      if (runs < 6) g.line += `  (${timing.toLowerCase()})`;
+      if (runs === 6) g.line = "PERFECT TIMING! " + g.line;
+      else g.line += `  (${timing.toLowerCase()} by ${Math.round(d)}ms)`;
     }
   }
 
+  let alive = true;
   const held = { left: false, right: false };
   const dirOf = (k) => (k === "ArrowLeft" || k === "a" || k === "A" ? "left" : k === "ArrowRight" || k === "d" || k === "D" ? "right" : null);
   const onKey = (e) => {
@@ -135,16 +148,20 @@ export function startCricket({ color, onExit }) {
   // Mouse / finger x sets where the batter stands.
   const posFromPointer = (e) => {
     const { cx } = geo();
-    const unit = (project(SWEET, 60).x - cx) / 60;
+    const unit = (project(g.sweet, 60).x - cx) / 60;
     g.pos = Math.max(-MAX_POS, Math.min(MAX_POS, (e.clientX - cx) / unit));
   };
-  addEventListener("keydown", onKey);
-  addEventListener("keyup", onKeyUp);
+  // Defer so the Enter that launched the game doesn't also bowl the first ball.
+  setTimeout(() => {
+    if (!alive) return;
+    addEventListener("keydown", onKey);
+    addEventListener("keyup", onKeyUp);
+  }, 0);
   cv.addEventListener("pointermove", posFromPointer);
   cv.addEventListener("pointerdown", (e) => { posFromPointer(e); swing(); });
   closeBtn.addEventListener("click", () => quit());
 
-  let raf, last = performance.now(), alive = true;
+  let raf, last = performance.now();
   function quit() {
     alive = false;
     cancelAnimationFrame(raf);
@@ -228,15 +245,23 @@ export function startCricket({ color, onExit }) {
     stumps(cx, batY, 1, g.stumpsT);
 
     // hit zone: where the ball is at perfect timing
-    const zone = project(SWEET, 0);
-    const zy = zone.y - height(SWEET) * zone.s;
-    const inZone = g.state === "delivery" && g.swungAt === null && Math.abs(g.t - SWEET) < 0.085;
+    const zone = project(g.sweet, 0);
+    const zy = zone.y - height(g.sweet) * zone.s;
+    const inZone = g.state === "delivery" && g.swungAt === null && Math.abs(relMs()) < ZONES[2][0];
     ctx.globalAlpha = inZone ? 0.9 : 0.35;
     ctx.setLineDash([6, 6]);
     ctx.lineWidth = inZone ? 3 : 1.5;
     ctx.beginPath(); ctx.ellipse(cx, zy, nearW * 0.55, 26, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.setLineDash([]);
     if (inZone) { ctx.globalAlpha = 0.15; ctx.fill(); }
+    // reach bracket: the ball's shadow must pass between these marks
+    const rA = project(g.sweet, g.pos - REACH).x, rB = project(g.sweet, g.pos + REACH).x;
+    const gy = zone.y;
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(rA, gy - 8); ctx.lineTo(rA, gy); ctx.lineTo(rB, gy); ctx.lineTo(rB, gy - 8);
+    ctx.stroke();
     ctx.globalAlpha = inZone ? 1 : 0.5;
     ctx.textAlign = "right";
     ctx.font = font(inZone ? 22 : 16);
@@ -245,7 +270,7 @@ export function startCricket({ color, onExit }) {
 
     // batter beside the stumps, bat hanging across the ball's line
     g.pos = Math.max(-MAX_POS, Math.min(MAX_POS, g.pos + ((held.right ? 1 : 0) - (held.left ? 1 : 0)) * 70 * dt));
-    const tipX = project(SWEET, g.pos).x; // where the bat meets the ball
+    const tipX = project(g.sweet, g.pos).x; // where the bat meets the ball
     const px = tipX + nearW * 0.22, py = zy - 46; // hands (bat pivot)
     const fx = px + 26; // body x
     ctx.fillRect(fx - 7, batY - 82, 14, 46); // body
@@ -317,6 +342,40 @@ export function startCricket({ color, onExit }) {
       ctx.fillText(g.pop, cx, H * 0.5);
       ctx.globalAlpha = 1;
     }
+
+    // timing meter (FC-penalty style)
+    const mw = Math.min(560, W * 0.84), mh = 16, mx = cx - mw / 2, my = H - 92;
+    const toX = (ms) => mx + ((ms - METER_MS[0]) / (METER_MS[1] - METER_MS[0])) * mw;
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 0.12;
+    ctx.fillRect(mx, my, mw, mh);
+    [...ZONES].reverse().forEach(([ms, r]) => {
+      ctx.globalAlpha = { 1: 0.22, 2: 0.4, 4: 0.65, 6: 1 }[r];
+      const x0 = toX(-ms), x1 = Math.min(toX(ms), mx + mw);
+      ctx.fillRect(x0, my, x1 - x0, mh);
+    });
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(mx, my, mw, mh);
+    ctx.font = font(14);
+    ctx.textAlign = "center";
+    ctx.globalAlpha = 0.7;
+    ctx.fillText("PERFECT", toX(0), my - 6);
+    ctx.textAlign = "left";
+    ctx.fillText("EARLY", mx, my - 6);
+    ctx.textAlign = "right";
+    ctx.fillText("STUMPS", mx + mw, my - 6);
+    ctx.globalAlpha = 1;
+    const marker = (ms, h, w) => {
+      const x = Math.max(mx, Math.min(mx + mw, toX(ms)));
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(x - w / 2, my - h, w, mh + h * 2);
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 6;
+    };
+    if (g.state === "delivery" && relMs() >= METER_MS[0]) marker(relMs(), 6, 3);
+    if (g.press !== null && g.state !== "ready") marker(g.press, 10, 5);
 
     // commentary
     ctx.shadowBlur = 6;

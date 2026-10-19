@@ -46,9 +46,9 @@ export const experience = [
   {
     kind: "work",
     when: "2025 — now",
-    title: "Founder · 3D Printing Business",
-    org: "Self-employed",
-    points: ["Running a small 3D printing business and building the software that powers it."],
+    title: "Founder · 3D Printing",
+    org: "nayan3dprints",
+    points: ["Running nayan3dprints, a small 3D printing business, and building the software that powers it."],
   },
   {
     kind: "education",
@@ -113,13 +113,13 @@ export const projects = [
     // TODO(nayan): real name, stack and link once the app is ready.
     id: "printapp",
     title: "Print Shop OS",
-    subtitle: "App for my 3D printing business",
+    subtitle: "App for nayan3dprints, my 3D printing business",
     year: "IN DEV",
     stack: ["In development"],
     image: null,
     link: null,
     points: [
-      "Orders, quotes and print queue for a real 3D printing business.",
+      "Orders, quotes and the print queue for nayan3dprints.",
       "Currently being built. Watch this space.",
     ],
   },

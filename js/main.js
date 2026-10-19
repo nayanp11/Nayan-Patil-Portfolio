@@ -94,10 +94,10 @@ const GREETINGS = [
 ];
 const BOOT_LINES = [
   "NAYAN-OS BIOS v26.10  (c) 2026 Patil Systems",
-  "CPU: Caffeine-free Chai Core i7 @ 4.20GHz ......... OK",
+  "CPU check ............................................ OK",
   "MEM CHECK 640K ........................................ OK",
   "Loading kernel modules: react node mongo python sql ... OK",
-  "Mounting /dev/creativity .............................. OK",
+  "Mounting /home/nayan .................................. OK",
   "Linking uplink → MUMBAI-NODE 19.03N 73.02E ............ OK",
 ];
 async function boot() {

@@ -14,10 +14,9 @@ export const profile = {
   taglines: [
     "builds full-stack web apps",
     "takes machines apart to see how they work",
-    "encrypts things for fun",
+    "builds secure, encrypted apps",
     "turns ideas into 3D prints",
-    "breaks things (ethically)",
-    "runs on chai & javascript",
+    "is learning security hands-on",
   ],
   about: [
     "I'm a software developer from Navi Mumbai, and I've always been curious about how things work. As a kid that meant opening up whatever machine I could get a screwdriver into. Now it mostly means code: I like building things end to end, from the interface people use to the APIs and data behind it.",
@@ -30,7 +29,6 @@ export const profile = {
     ["prev", "B.Sc. Computer Science · CGPA 8.36"],
     ["status", "open to software roles"],
     ["off-screen", "football, games, 3D printing"],
-    ["fuel", "cutting chai ☕"],
   ],
 };
 

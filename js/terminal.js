@@ -47,7 +47,7 @@ const FILES = {
   "secrets.env": () => "permission denied: nice try 😏",
 };
 
-export function initTerminal({ onTheme, onMatrix }) {
+export function initTerminal({ onTheme, onMatrix, onCricket }) {
   const root = document.getElementById("terminal");
   const out = document.getElementById("term-out");
   const input = document.getElementById("term-in");
@@ -114,6 +114,15 @@ export function initTerminal({ onTheme, onMatrix }) {
         return `phosphor set to ${t}`;
       },
     },
+    play: {
+      desc: "play cricket 🏏",
+      run: ([g]) => {
+        if (g !== "cricket") return { err: "usage: play cricket" };
+        close();
+        onCricket();
+        return "padding up… 🏏";
+      },
+    },
     date: { desc: "time in Mumbai", run: () => new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST" },
     ls: { desc: "list files", run: () => Object.keys(FILES).join("   ") },
     cat: {
@@ -127,6 +136,7 @@ export function initTerminal({ onTheme, onMatrix }) {
     // hidden
     chai: { run: () => brewChai() },
     coffee: { run: () => "☕ 404: coffee not found. This is a chai household. Try 'chai'." },
+    cricket: { run: () => "did you mean: play cricket" },
     matrix: { run: () => (close(), onMatrix(), "") },
     namaste: { run: () => "🙏 नमस्ते! Thanks for stopping by." },
     sudo: {

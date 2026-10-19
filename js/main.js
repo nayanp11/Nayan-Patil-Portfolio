@@ -1,5 +1,6 @@
 import { profile, projects, skills, experience } from "./data.js";
 import { initTerminal } from "./terminal.js";
+import { startCricket } from "./cricket.js";
 
 if (window.gsap) gsap.registerPlugin(ScrollTrigger);
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -377,11 +378,16 @@ function matrixRain() {
 }
 
 /* ---------- terminal + konami ---------- */
-const term = initTerminal({ onTheme: setPhosphor, onMatrix: matrixRain });
+const term = initTerminal({
+  onTheme: setPhosphor,
+  onMatrix: matrixRain,
+  onCricket: () => startCricket({ color: phosphorHex(), onExit: () => term.open() }),
+});
 document.querySelectorAll("[data-open-terminal]").forEach((b) => b.addEventListener("click", term.open));
 const KONAMI = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
 let kPos = 0;
 addEventListener("keydown", (e) => {
+  if (document.querySelector(".cricket")) return;
   const typing = e.target.matches("input, textarea");
   if (e.key === "`" && !typing) { e.preventDefault(); term.toggle(); return; }
   if (typing) return;

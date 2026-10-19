@@ -184,6 +184,7 @@ $("#phosphor-toggle").addEventListener("click", () =>
 $("#phosphor-label").textContent = document.documentElement.dataset.phosphor === "amber" ? "P3" : "P1";
 
 /* ---------- dithered portrait ---------- */
+const DITHER_MIX = 0.55; // 1 = pure 1-bit dither, 0 = smooth tinted photo
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 function drawDither() {
   const img = $("#dither-src");
@@ -203,8 +204,10 @@ function drawDither() {
       const i = (y * cv.width + x) * 4;
       const lum = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255;
       const contrast = Math.min(1, Math.max(0, (lum - 0.5) * 1.5 + 0.55));
-      const on = contrast > (BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16;
-      d[i] = on ? r : 0; d[i + 1] = on ? g : 0; d[i + 2] = on ? b : 0; d[i + 3] = 255;
+      const on = contrast > (BAYER[(y % 4) * 4 + (x % 4)] + 0.5) / 16 ? 1 : 0;
+      // Blend the 1-bit dither with a smooth tinted copy so the face stays readable.
+      const v = DITHER_MIX * on + (1 - DITHER_MIX) * contrast;
+      d[i] = r * v; d[i + 1] = g * v; d[i + 2] = b * v; d[i + 3] = 255;
     }
   }
   ctx.putImageData(data, 0, 0);

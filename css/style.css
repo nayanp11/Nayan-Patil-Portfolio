@@ -133,7 +133,7 @@ kbd { border: 1px solid var(--dim); padding: 0 5px; font-family: var(--mono); }
 /* about */
 .about-grid { display: grid; grid-template-columns: minmax(220px, 360px) 1fr; gap: clamp(32px, 6vw, 96px); align-items: start; margin-top: 48px; }
 .about-photo canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
-.about-text p { font-size: clamp(16px, 1.7vw, 21px); margin: 0 0 20px; max-width: 46ch; }
+.about-text p { font-size: clamp(16px, 1.6vw, 20px); margin: 0 0 20px; max-width: 64ch; }
 .facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; margin: 36px 0 0; border-top: 1px dashed var(--faint); padding-top: 24px; }
 .facts dt { color: var(--dim); }
 .facts dt::after { content: ":"; }

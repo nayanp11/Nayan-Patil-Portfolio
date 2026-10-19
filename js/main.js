@@ -402,4 +402,9 @@ import("./hero3d.js")
   .catch(() => {})
   .finally(initScroll);
 loadGitHub();
+// Shared score cards link to #cricket: skip the boot and open the game straight away.
+if (location.hash === "#cricket") {
+  store.set("booted", "1", sessionStorage);
+  startCricket({ color: phosphorHex(), onExit: () => term.open() });
+}
 boot();
